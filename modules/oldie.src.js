@@ -1,5 +1,5 @@
 /**
- * @license Highcharts JS v8.2.2 (2020-10-22)
+ * @license Highcharts JS v8.2.2 (2020-10-27)
  *
  * Old IE (v6, v7, v8) module for Highcharts v6+.
  *

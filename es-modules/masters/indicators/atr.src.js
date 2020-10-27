@@ -1,5 +1,5 @@
 /**
- * @license Highstock JS v8.2.2 (2020-10-22)
+ * @license Highstock JS v8.2.2 (2020-10-27)
  * @module highcharts/indicators/atr
  * @requires highcharts
  * @requires highcharts/modules/stock

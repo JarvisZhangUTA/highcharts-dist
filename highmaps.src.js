@@ -1,5 +1,5 @@
 /**
- * @license Highmaps JS v8.2.2 (2020-10-22)
+ * @license Highmaps JS v8.2.2 (2020-10-27)
  *
  * (c) 2011-2018 Torstein Honsi
  *
@@ -1455,7 +1455,7 @@
             thousandsSep) {
                 number = +number || 0;
             decimals = +decimals;
-            var lang = H.defaultOptions.lang, origDec = (number.toString().split('.')[1] || '').split('e')[0].length, strinteger, thousands, ret, roundedNumber, exponent = number.toString().split('e'), fractionDigits;
+            var lang = H.defaultOptions.lang, origDec = (number.toString().split('.')[1] || '').split('e')[0].length, strinteger, thousands, ret, roundedNumber, exponent = number.toString().split('e'), fractionDigits, firstDecimals = decimals;
             if (decimals === -1) {
                 // Preserve decimals. Not huge numbers (#3793).
                 decimals = Math.min(origDec, 20);
@@ -1503,10 +1503,15 @@
             // Add the leftover after grouping into thousands. For example, in the
             // number 42 000 000, this line adds 42.
             ret += thousands ? strinteger.substr(0, thousands) + thousandsSep : '';
-            // Add the remaining thousands groups, joined by the thousands separator
-            ret += strinteger
-                .substr(thousands)
-                .replace(/(\d{3})(?=\d)/g, '$1' + thousandsSep);
+            if (+exponent[1] < 0 && !firstDecimals) {
+                ret = '0';
+            }
+            else {
+                // Add the remaining thousands groups, joined by the thousands separator
+                ret += strinteger
+                    .substr(thousands)
+                    .replace(/(\d{3})(?=\d)/g, '$1' + thousandsSep);
+            }
             // Add the decimal point and the decimal component
             if (decimals) {
                 // Get the decimal component
@@ -14969,8 +14974,8 @@
                 var axis = this.linkedParent || this, // #1417
                     sign = 1,
                     cvsOffset = 0,
-                    localA = old ? axis.oldTransA : axis.transA,
-                    localMin = old ? axis.oldMin : axis.min,
+                    localA = old && axis.old ? axis.old.transA : axis.transA,
+                    localMin = old && axis.old ? axis.old.min : axis.min,
                     returnValue = 0,
                     minPixelPadding = axis.minPixelPadding,
                     doPostTranslate = (axis.isOrdinal ||
@@ -15476,12 +15481,9 @@
              * @private
              * @function Highcharts.Axis#setAxisTranslation
              *
-             * @param {boolean} [saveOld]
-             * TO-DO: parameter description
-             *
              * @fires Highcharts.Axis#event:afterSetAxisTranslation
              */
-            Axis.prototype.setAxisTranslation = function (saveOld) {
+            Axis.prototype.setAxisTranslation = function () {
                 var axis = this,
                     range = axis.max - axis.min,
                     pointRange = axis.axisPointRange || 0,
@@ -15552,9 +15554,6 @@
                     }
                 }
                 // Secondary values
-                if (saveOld) {
-                    axis.oldTransA = transA;
-                }
                 axis.translationSlope = axis.transA = transA =
                     axis.staticScale ||
                         axis.len / ((range + pointRangePadding) || 1);
@@ -15760,11 +15759,13 @@
                 // axes.
                 if (isXAxis && !secondPass) {
                     axis.series.forEach(function (series) {
-                        series.processData(axis.min !== axis.oldMin || axis.max !== axis.oldMax);
+                        var _a,
+                            _b;
+                        series.processData(axis.min !== ((_a = axis.old) === null || _a === void 0 ? void 0 : _a.min) || axis.max !== ((_b = axis.old) === null || _b === void 0 ? void 0 : _b.max));
                     });
                 }
                 // set the translation factor used in translate function
-                axis.setAxisTranslation(true);
+                axis.setAxisTranslation();
                 // hook for ordinal axes and radial axes
                 fireEvent(this, 'initialAxisTranslation');
                 // In column-like charts, don't cramp in more ticks than there are
@@ -16118,6 +16119,11 @@
              * @fires Highcharts.Axis#event:afterSetScale
              */
             Axis.prototype.setScale = function () {
+                var _a,
+                    _b,
+                    _c,
+                    _d,
+                    _e;
                 var axis = this,
                     isDirtyAxisLength,
                     isDirtyData = false,
@@ -16129,20 +16135,17 @@
                     // well:
                     isXAxisDirty = isXAxisDirty || ((_a = series.xAxis) === null || _a === void 0 ? void 0 : _a.isDirty) || false;
                 });
-                axis.oldMin = axis.min;
-                axis.oldMax = axis.max;
-                axis.oldAxisLength = axis.len;
                 // set the new axisLength
                 axis.setAxisSize();
-                isDirtyAxisLength = axis.len !== axis.oldAxisLength;
+                isDirtyAxisLength = axis.len !== ((_a = axis.old) === null || _a === void 0 ? void 0 : _a.len);
                 // do we really need to go through all this?
                 if (isDirtyAxisLength ||
                     isDirtyData ||
                     isXAxisDirty ||
                     axis.isLinked ||
                     axis.forceRedraw ||
-                    axis.userMin !== axis.oldUserMin ||
-                    axis.userMax !== axis.oldUserMax ||
+                    axis.userMin !== ((_b = axis.old) === null || _b === void 0 ? void 0 : _b.userMin) ||
+                    axis.userMax !== ((_c = axis.old) === null || _c === void 0 ? void 0 : _c.userMax) ||
                     axis.alignToOthers()) {
                     if (axis.stacking) {
                         axis.stacking.resetStacks();
@@ -16152,17 +16155,13 @@
                     axis.getSeriesExtremes();
                     // get fixed positions based on tickInterval
                     axis.setTickInterval();
-                    // record old values to decide whether a rescale is necessary later
-                    // on (#540)
-                    axis.oldUserMin = axis.userMin;
-                    axis.oldUserMax = axis.userMax;
                     // Mark as dirty if it is not already set to dirty and extremes have
                     // changed. #595.
                     if (!axis.isDirty) {
                         axis.isDirty =
                             isDirtyAxisLength ||
-                                axis.min !== axis.oldMin ||
-                                axis.max !== axis.oldMax;
+                                axis.min !== ((_d = axis.old) === null || _d === void 0 ? void 0 : _d.min) ||
+                                axis.max !== ((_e = axis.old) === null || _e === void 0 ? void 0 : _e.max);
                     }
                 }
                 else if (axis.stacking) {
@@ -17109,7 +17108,7 @@
              */
             Axis.prototype.renderMinorTick = function (pos) {
                 var axis = this;
-                var slideInTicks = axis.chart.hasRendered && isNumber(axis.oldMin);
+                var slideInTicks = axis.chart.hasRendered && axis.old;
                 var minorTicks = axis.minorTicks;
                 if (!minorTicks[pos]) {
                     minorTicks[pos] = new Tick(axis, pos, 'minor');
@@ -17137,7 +17136,7 @@
                 var axis = this;
                 var isLinked = axis.isLinked;
                 var ticks = axis.ticks;
-                var slideInTicks = axis.chart.hasRendered && isNumber(axis.oldMin);
+                var slideInTicks = axis.chart.hasRendered && axis.old;
                 // Linked axes need an extra check to find out if
                 if (!isLinked ||
                     (pos >= axis.min && pos <= axis.max) || ((_a = axis.grid) === null || _a === void 0 ? void 0 : _a.isColumn)) {
@@ -17312,6 +17311,15 @@
                     axis.stacking.renderStackTotals();
                 }
                 // End stacked totals
+                // Record old scaling for updating/animation
+                axis.old = {
+                    len: axis.len,
+                    max: axis.max,
+                    min: axis.min,
+                    transA: axis.transA,
+                    userMax: axis.userMax,
+                    userMin: axis.userMin
+                };
                 axis.isDirty = false;
                 fireEvent(this, 'afterRender');
             };
@@ -28080,13 +28088,8 @@
                 if (hasCartesianSeries) {
                     // set axes scales
                     axes.forEach(function (axis) {
-                        // Don't do setScale again if we're only resizing. Regression
-                        // #13507. But we need it after chart.update (responsive), as
-                        // axis is initialized again (#12137).
-                        if (!chart.isResizing || !isNumber(axis.min)) {
-                            axis.updateNames();
-                            axis.setScale();
-                        }
+                        axis.updateNames();
+                        axis.setScale();
                     });
                 }
                 chart.getMargins(); // #3098

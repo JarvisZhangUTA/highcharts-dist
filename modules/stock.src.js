@@ -1,5 +1,5 @@
 /**
- * @license Highstock JS v8.2.2 (2020-10-22)
+ * @license Highstock JS v8.2.2 (2020-10-27)
  *
  * Highstock as a plugin for Highcharts
  *
@@ -3335,6 +3335,7 @@
         var addEvent = U.addEvent,
             css = U.css,
             defined = U.defined,
+            error = U.error,
             pick = U.pick,
             timeUnits = U.timeUnits;
         // Has a dependency on Navigator due to the use of Axis.toFixedRange
@@ -3810,29 +3811,34 @@
                     }
                     // Get the grouping info from the last of the segments. The info is
                     // the same for all segments.
-                    info = segmentPositions.info;
-                    // Optionally identify ticks with higher rank, for example when the
-                    // ticks have crossed midnight.
-                    if (findHigherRanks && info.unitRange <= timeUnits.hour) {
-                        end = groupPositions.length - 1;
-                        // Compare points two by two
-                        for (start = 1; start < end; start++) {
-                            if (time.dateFormat('%d', groupPositions[start]) !==
-                                time.dateFormat('%d', groupPositions[start - 1])) {
-                                higherRanks[groupPositions[start]] = 'day';
-                                hasCrossedHigherRank = true;
+                    if (segmentPositions) {
+                        info = segmentPositions.info;
+                        // Optionally identify ticks with higher rank, for example
+                        // when the ticks have crossed midnight.
+                        if (findHigherRanks && info.unitRange <= timeUnits.hour) {
+                            end = groupPositions.length - 1;
+                            // Compare points two by two
+                            for (start = 1; start < end; start++) {
+                                if (time.dateFormat('%d', groupPositions[start]) !==
+                                    time.dateFormat('%d', groupPositions[start - 1])) {
+                                    higherRanks[groupPositions[start]] = 'day';
+                                    hasCrossedHigherRank = true;
+                                }
                             }
+                            // If the complete array has crossed midnight, we want
+                            // to mark the first positions also as higher rank
+                            if (hasCrossedHigherRank) {
+                                higherRanks[groupPositions[0]] = 'day';
+                            }
+                            info.higherRanks = higherRanks;
                         }
-                        // If the complete array has crossed midnight, we want to mark
-                        // the first positions also as higher rank
-                        if (hasCrossedHigherRank) {
-                            higherRanks[groupPositions[0]] = 'day';
-                        }
-                        info.higherRanks = higherRanks;
+                        // Save the info
+                        info.segmentStarts = segmentStarts;
+                        groupPositions.info = info;
                     }
-                    // Save the info
-                    info.segmentStarts = segmentStarts;
-                    groupPositions.info = info;
+                    else {
+                        error(12, false, this.chart);
+                    }
                     // Don't show ticks within a gap in the ordinal axis, where the
                     // space between two points is greater than a portion of the tick
                     // pixel interval
@@ -4411,8 +4417,8 @@
                         }
                         Axis.prototype.setExtremes.call(this, newMin, newMax, redraw, animation, eventArguments);
                     };
-                    axis.setAxisTranslation = function (saveOld) {
-                        Axis.prototype.setAxisTranslation.call(this, saveOld);
+                    axis.setAxisTranslation = function () {
+                        Axis.prototype.setAxisTranslation.call(this);
                         brokenAxis.unitLength = null;
                         if (brokenAxis.hasBreaks) {
                             var breaks = axis.options.breaks || [], 

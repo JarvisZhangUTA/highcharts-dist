@@ -1,5 +1,5 @@
 /**
- * @license Highcharts JS v8.2.2 (2020-10-22)
+ * @license Highcharts JS v8.2.2 (2020-10-27)
  *
  * (c) 2009-2019 Sebastian Bochan, Rafal Sebestjanski
  *
@@ -738,7 +738,8 @@
         var clamp = U.clamp,
             merge = U.merge,
             pick = U.pick;
-        var columnProto = BaseSeries.seriesTypes.column.prototype;
+        var arearangeProto = BaseSeries.seriesTypes.arearange.prototype,
+            columnProto = BaseSeries.seriesTypes.column.prototype;
         /**
          * The column range is a cartesian series type with higher and lower
          * Y values along an X axis. To display horizontal bars, set
@@ -789,6 +790,10 @@
          * @augments Highcharts.Series
          */
         BaseSeries.seriesType('columnrange', 'arearange', merge(defaultOptions.plotOptions.column, defaultOptions.plotOptions.arearange, columnRangeOptions), {
+            setOptions: function () {
+                merge(true, arguments[0], { stacking: void 0 }); // #14359 Prevent side-effect from stacking.
+                return arearangeProto.setOptions.apply(this, arguments);
+            },
             // eslint-disable-next-line valid-jsdoc
             /**
              * Translate data points from raw values x and y to plotX and plotY
